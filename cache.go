@@ -78,8 +78,10 @@ type cacheData struct {
 func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
     defer func() {
         if err := recover(); err != nil {
-            log.Printf("Panic in ServeHTTP: %v", err)
-        }
+            log.Printf("Panic in ServeHTTP: %v. Reqest: %b", err, cacheKey(r))
+        } else { 
+			log.Printf("No Error in: %v", cacheKey(r))
+		}
     }()
 
 	cs := cacheMissStatus

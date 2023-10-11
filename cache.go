@@ -80,13 +80,13 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
         if err := recover(); err != nil {
-            log.Printf("Panic in ServeHTTP: %+v. Reqest: %+v", err, r)
-
 			if err == http.ErrAbortHandler {
-				log.Printf("Panic is %v, retrieve and cache file", err)
-				m.retrieveAndCacheRequest(key, w, r)
+				log.Printf("Connection was aborted, retrieve and cache file")
+				m.retryRetrieveAndCacheRequest(key, w, r)
+			} else {
+				log.Printf("Panic in ServeHTTP: %+v. Reqest: %+v", err, r)
 			}
-        } 
+        }
     }()
 
 	cs := cacheMissStatus
@@ -116,6 +116,16 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m.cfg.AddStatusHeader {
 		w.Header().Set(cacheHeader, cs)
 	}
+
+	m.retrieveAndCacheRequest(key, w, r)
+}
+
+func (m *cache) retryRetrieveAndCacheRequest(key string, w http.ResponseWriter, r *http.Request) {
+	defer func() {
+        if err := recover(); err != nil {
+			log.Printf("Panic in retryRetrieveAndCacheRequest: %+v. Reqest: %+v", err, r)
+		} 
+    }()
 
 	m.retrieveAndCacheRequest(key, w, r)
 }

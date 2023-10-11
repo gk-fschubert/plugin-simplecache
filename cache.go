@@ -76,15 +76,20 @@ type cacheData struct {
 
 // ServeHTTP serves an HTTP request.
 func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-    defer func() {
+	key := cacheKey(r)
+
+	defer func() {
         if err := recover(); err != nil {
             log.Printf("Panic in ServeHTTP: %+v. Reqest: %+v", err, r)
+
+			if err == http.ErrAbortHandler {
+				log.Printf("Panic is %v, retrieve and cache file", err)
+				m.retrieveAndCacheRequest(key, w, r)
+			}
         } 
     }()
 
 	cs := cacheMissStatus
-
-	key := cacheKey(r)
 
 	b, err := m.cache.Get(key)
 	if err == nil {
@@ -112,6 +117,10 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(cacheHeader, cs)
 	}
 
+	m.retrieveAndCacheRequest(key, w, r)
+}
+
+func (m *cache) retrieveAndCacheRequest(key string, w http.ResponseWriter, r *http.Request) {
 	rw := &responseWriter{ResponseWriter: w}
 	m.next.ServeHTTP(rw, r)
 
@@ -126,7 +135,7 @@ func (m *cache) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Body:    rw.body,
 	}
 
-	b, err = json.Marshal(data)
+	b, err := json.Marshal(data)
 	if err != nil {
 		log.Printf("Error serializing cache item: %v", err)
 	}
